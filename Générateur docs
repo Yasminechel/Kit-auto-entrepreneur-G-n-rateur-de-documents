@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Générateur de documents - Kit Auto-Entrepreneur</title>
+<style>
+ body { font-family: -apple-system, sans-serif; background: #fafaf9; color: #1e293b; max-width: 640px; margin: 0 auto; padding: 24px 16px; }
+ h1 { font-size: 28px; margin-bottom: 4px; }
+ p.subtitle { color: #64748b; font-size: 14px; margin-bottom: 24px; }
+ .card { background: white; border: 1px solid #e7e5e4; border-radius: 8px; padding: 20px; }
+ label { display: block; font-size: 12px; text-transform: uppercase; color: #64748b; margin-bottom: 6px; margin-top: 16px; }
+ input, textarea { width: 100%; padding: 10px; border: 1px solid #d6d3d1; border-radius: 6px; font-size: 14px; box-sizing: border-box; }
+ .doctype-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+ .doctype-btns button { flex: 1; min-width: 140px; padding: 10px; border: 1px solid #d6d3d1; border-radius: 6px; background: white; cursor: pointer; font-size: 13px; }
+ .doctype-btns button.active { border-color: #047857; background: #ecfdf5; color: #065f46; }
+ #generate-btn { margin-top: 20px; width: 100%; padding: 12px; background: #047857; color: white; border: none; border-radius: 6px; font-size: 14px; cursor: pointer; }
+ #generate-btn:disabled { opacity: 0.6; }
+ #result { margin-top: 20px; background: white; border: 1px solid #e7e5e4; border-radius: 8px; padding: 20px; white-space: pre-wrap; font-size: 14px; line-height: 1.6; display: none; }
+ #legal { font-size: 12px; color: #94a3b8; margin-top: 12px; border-top: 1px solid #e7e5e4; padding-top: 10px; }
+ #warning { font-size: 12px; color: #94a3b8; margin-top: 16px; }
+ #error { color: #dc2626; font-size: 14px; margin-top: 10px; }
+</style>
+</head>
+<body>
+<h1>Génère ton document</h1>
+<p class="subtitle">Décris ton activité, choisis ton document, et repars avec un texte prêt à l'emploi.</p>
+<div class="card">
+<label>Type de document</label>
+<div class="doctype-btns" id="doctype-btns">
+<button class="active" data-type="description">Description d'activité</button>
+<button data-type="facture">Modèle de facture</button>
+<button data-type="checklist">Check-list de démarrage</button>
+</div>
+<label>Ton activité</label>
+<input id="activity" type="text" placeholder="Ex : graphiste freelance, coach sportif...">
+<label>Précisions (facultatif)</label>
+<textarea id="details" rows="2" placeholder="Ex : je travaille avec des petites entreprises"></textarea>
+<p id="warning">Cet outil génère des modèles vierges à compléter avec tes propres informations. Il ne peut pas être utilisé pour produire de faux documents ou usurper l'identité d'un tiers.</p>
+<p id="error"></p>
+<button id="generate-btn">Générer mon document</button>
+</div>
+<div id="result"></div>
+<script>
+   const docTypes = {
+     description: "Rédige une description d'activité professionnelle claire et vendeuse (4-5 phrases), destinée à être utilisée sur un site, une facture ou un formulaire d'inscription en tant qu'auto-entrepreneur.",
+     facture: "Rédige un modèle de facture texte pour auto-entrepreneur en France, avec toutes les mentions obligatoires (numéro de facture, date, coordonnées vendeur/client à remplir, désignation de la prestation, montant HT, mention TVA non applicable art. 293B du CGI, conditions de paiement). Utilise des crochets [Comme ça] pour les champs à remplir.",
+     checklist: "Rédige une check-list concrète et actionnable (8 à 10 étapes numérotées) pour démarrer une activité d'auto-entrepreneur adaptée à ce secteur précis, de l'inscription jusqu'à la première vente."
+   };
+   let selectedType = "description";
+   document.querySelectorAll("#doctype-btns button").forEach(btn => {
+     btn.addEventListener("click", () => {
+       document.querySelectorAll("#doctype-btns button").forEach(b => b.classList.remove("active"));
+       btn.classList.add("active");
+       selectedType = btn.dataset.type;
+     });
+   });
+   document.getElementById("generate-btn").addEventListener("click", async () => {
+     const activity = document.getElementById("activity").value.trim();
+     const details = document.getElementById("details").value.trim();
+     const errorEl = document.getElementById("error");
+     const resultEl = document.getElementById("result");
+     const btn = document.getElementById("generate-btn");
+     errorEl.textContent = "";
+     if (!activity) {
+       errorEl.textContent = "Précise ton activité pour générer un document adapté.";
+       return;
+     }
+     btn.disabled = true;
+     btn.textContent = "Génération en cours...";
+     resultEl.style.display = "none";
+     try {
+       const response = await fetch("/api/generate", {
+         method: "POST",
+         headers: { "Content-Type": "application/json" },
+         body: JSON.stringify({ docType: selectedType, activity, details })
+       });
+       if (!response.ok) throw new Error("failed");
+       const data = await response.json();
+       resultEl.style.display = "block";
+       resultEl.innerHTML = data.text.replace(/\n/g, "<br>") +
+         '<div id="legal">Modèle à personnaliser avec tes informations réelles — ce document n\'a pas de valeur légale tant qu\'il n\'est pas complété avec des données authentiques.</div>';
+     } catch (err) {
+       errorEl.textContent = "Une erreur est survenue. Réessaie dans un instant.";
+     } finally {
+       btn.disabled = false;
+       btn.textContent = "Générer mon document";
+     }
+   });
+</script>
+</body>
+</html>
